@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "spectrum-to-molecular"
+version = "0.1.0"
+description = ""
+authors = ["IVproger <i.golov@innopolis.university>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = ">=3.10"
+torch = "^2.6.0"
+jupyter = "^1.1.1"
+pandas = "^2.2.3"
+numpy = "^2.2.4"
+matplotlib = "^3.10.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
