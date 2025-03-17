@@ -75,8 +75,8 @@ We maintain a comprehensive literature review where all relevant research papers
 1. **Clone the Repository:**
 
    ```bash
-   git clone https://github.com/your-repo/project.git
-   cd project
+   git clone https://github.com/your-repo/project.git](https://github.com/IVproger/Spectrum-to-Molecular.git
+   cd Spectrum-to-Molecular
    ```
 
 2. **Install Dependencies with Poetry:**
