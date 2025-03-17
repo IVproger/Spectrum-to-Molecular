@@ -17,7 +17,7 @@ Welcome to our research project repository. This project aims to develop an **in
   Combine:
   - **Graph Neural Networks (GNNs):** To model chemical bonds and molecular fragmentation.
   - **Diffusion Models:** To generate molecular structures under chemical constraints.  
-    The *DiffMS* module—integrated from the Coley Group’s work—is a core component in this approach. For more details, see the [DiffMS GitHub repository](https://github.com/coleygroup/DiffMS.git) and the associated [arXiv publication](https://arxiv.org/abs/2502.09571). citeturn0file0
+    The *DiffMS* module—integrated from the Coley Group’s work—is a core component in this approach. For more details, see the [DiffMS GitHub repository](https://github.com/coleygroup/DiffMS.git) and the associated [arXiv publication](https://arxiv.org/abs/2502.09571). 
   - **Transformer Architectures:** To analyze complex spectral patterns.
 
 - **Integration with Analytical Tools:**  
