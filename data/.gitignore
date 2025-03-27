@@ -1,9 +1,2 @@
-/hrms_db_sample
-/biomols
-/NPLIB1_canopus_train
-/casmi22
-/mass_spec_gym
-/fp2mol
-/msg_diffms
-/canopus_diffms
-/diffms_spectrum_db
+/raw
+/production_ready_data
