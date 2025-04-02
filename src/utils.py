@@ -4,12 +4,14 @@ from rdkit.Chem import Descriptors, PandasTools
 from rdkit.Chem import rdMolDescriptors
 from tqdm import tqdm
 from pyteomics import mzxml
+import re
 import os
 import json
 import pandas as pd
 import multiprocessing as mp
 from functools import partial
 from typing import Dict, List, Optional, Tuple, Union, Any, Callable
+
 
 # Configure RDKit logging
 logger = RDLogger.logger()
@@ -203,6 +205,106 @@ def extract_mzxml_data(filepath: str) -> Optional[Dict[str, Any]]:
         logger.error(f"Error extracting data from mzXML file {filepath}: {e}")
         return None
 
+def parse_mgf_entry(entry_text: str) -> Optional[Dict[str, Any]]:
+    """Parse a single entry from an MGF file (between BEGIN IONS and END IONS).
+    
+    Args:
+        entry_text: Text content of a single MGF entry
+        
+    Returns:
+        Dictionary with metadata and spectral data or None if parsing fails
+    """
+    lines = entry_text.strip().split('\n')
+    metadata = {}
+    peaks = {'mz': [], 'ms2_inten': []}
+    
+    for line in lines:
+        line = line.strip()
+        
+        if not line:
+            print('skip')
+            continue
+        
+        # Extract metadata (key=value format)
+        if '=' in line:
+            key, value = line.split('=', 1)
+            metadata[key] = value
+            continue
+        
+        # Parse peak data (m/z intensity pairs)
+        parts = line.split()
+        if len(parts) == 2:
+            try:
+                mz = float(parts[0])
+                intensity = float(parts[1])
+                peaks['mz'].append(mz)
+                peaks['ms2_inten'].append(intensity)
+            except ValueError:
+                # Skip lines that don't parse as numerical values
+                continue
+        
+        # Extract CASMI ID if available
+    casmi_id = metadata.get('CASMI_ID')
+    if casmi_id:
+        metadata['CASMI_ID'] = int(casmi_id)
+        
+    return {
+        'metadata': metadata,
+        'output_tbl': peaks
+    }
+
+def extract_casmi_spectra(casmi_labels_file: str, mgf_file: str,) -> pd.DataFrame:
+    """Extract spectral data from MGF files and merge with CASMI labels.
+    
+    Args:
+        casmi_labels_file: Path to CASMI_labels.tsv file
+        mgf_file: path to MGF file containing spectral data
+        
+    Returns:
+        DataFrame with CASMI labels enriched with spectral data
+    """
+    df_labels = pd.read_csv(casmi_labels_file, sep='\t')
+    all_spectra = process_mgf_file(mgf_file)
+    
+    df_result = df_labels.copy()
+    
+    df_result['spectral_data'] = df_result['spec'].map(
+        lambda spec_id: all_spectra.get(spec_id, {}).get('output_tbl', {}) if pd.notna(spec_id) else {}
+    )
+    
+    return df_result
+
+def process_single_mzxml(filepath: str) -> dict:
+    """Process a single mzXML file."""
+    try:
+        result = {}
+        result['filepath'] = filepath
+        
+        with mzxml.read(filepath, huge_tree=True) as reader:
+            
+            # Extract basic file info
+            spectra = []
+            spec_count = 0
+            
+            for spectrum in reader:
+                spec_count += 1
+                spec_data = {
+                    'scan_number': spectrum.get('num', 0),
+                    'retention_time': spectrum.get('retentionTime', 0),
+                    'ms_level': spectrum.get('msLevel', 0),
+                    'precursor_mz': spectrum.get('precursorMz', [{}])[0].get('value', 0) if spectrum.get('msLevel', 0) > 1 else None,
+                    'm/z_array': spectrum.get('m/z array', []),
+                    'intensity_array': spectrum.get('intensity array', [])
+                }
+                spectra.append(spec_data)
+            
+            result['spectra'] = spectra
+            
+        return result
+    except Exception as e:
+        print(f"Error processing {filepath}: {str(e)}")
+        return None
+    
 # ============================================================================
 # File Processing Functions
 # ============================================================================
@@ -238,6 +340,30 @@ def read_json_file(file_name: str, data_path: str) -> Tuple[str, Optional[Dict]]
     except Exception as e:
         logger.error(f"Error processing {json_path}: {e}")
         return file_name, None
+
+def process_mgf_file(mgf_file: str) -> Dict[int, Dict[str,Any]]:
+    """Process an MGF file and extract spectral data for each CASMI ID.
+    
+    Args:
+        mgf_file: Path to the MGF file
+        
+    Returns:
+        Dictionary mapping CASMI IDs to spectral data
+    """
+    
+    with open(mgf_file,'r') as f:
+        content = f.read()
+        
+    ion_blocks = re.findall(r'BEGIN IONS(.*?)END IONS', content, re.DOTALL)
+    
+    spectra_dict = {}
+    for block in tqdm(ion_blocks, desc="Parsing blocks"):
+        entry_data = parse_mgf_entry(block)
+        if entry_data and "CASMI_ID" in entry_data['metadata']:
+            casmi_id = int(entry_data['metadata']['CASMI_ID'])
+            spectra_dict[casmi_id] = entry_data
+            
+    return spectra_dict
 
 # ============================================================================
 # Parallel Processing Functions
@@ -493,21 +619,13 @@ def process_smiles_file(filepath: str, n_jobs: Optional[int] = None) -> List[Dic
     return valid_results
 
 def process_mzxml_files(filepaths: List[str], n_jobs: Optional[int] = None) -> pd.DataFrame:
-    """Process multiple mzXML files in parallel.
-    
-    Args:
-        filepaths: List of paths to mzXML files
-        n_jobs: Number of processes to use (defaults to CPU count)
-        
-    Returns:
-        DataFrame with extracted data
-    """
+    """Process multiple mzXML files in parallel."""
     if n_jobs is None:
         n_jobs = mp.cpu_count()
     
     results = process_in_parallel(
         items=filepaths,
-        process_func=process_mzxml_files,
+        process_func=process_single_mzxml,
         n_jobs=n_jobs,
         desc="Processing mzXML files"
     )
@@ -516,4 +634,8 @@ def process_mzxml_files(filepaths: List[str], n_jobs: Optional[int] = None) -> p
     valid_results = [r for r in results if r is not None]
     
     print(f"Successfully processed {len(valid_results)} out of {len(filepaths)} mzXML files")
-    return pd.DataFrame(valid_results)
+    
+    # Create a DataFrame without the spectra column initially
+    df_files = pd.DataFrame(valid_results)
+    
+    return df_files
