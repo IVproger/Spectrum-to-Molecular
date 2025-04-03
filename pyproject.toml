@@ -27,6 +27,10 @@ seaborn = "*"
 myopic-mces = "*"
 huggingface-hub = "^0.29.3"
 openpyxl = "^3.1.5"
+pyteomics = "^4.7.5"
+lxml = "^5.3.1"
+pubchempy = "^1.0.4"
+pysmiles = "^2.0.0"
 
 [build-system]
 requires = ["poetry-core"]
