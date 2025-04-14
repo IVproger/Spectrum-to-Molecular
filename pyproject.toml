@@ -31,6 +31,7 @@ pyteomics = "^4.7.5"
 lxml = "^5.3.1"
 pubchempy = "^1.0.4"
 pysmiles = "^2.0.0"
+tqdm-joblib = "^0.0.4"
 
 [build-system]
 requires = ["poetry-core"]

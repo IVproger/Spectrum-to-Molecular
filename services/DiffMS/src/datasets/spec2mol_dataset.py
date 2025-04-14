@@ -34,7 +34,7 @@ valency = [ATOM_TO_VALENCY.get(atom, 0) for atom in atom_decoder]
 class Spec2MolDataModule(MolecularDataModule):
     def __init__(self, cfg):
         self.remove_h = False
-        self.datadir = cfg.dataset.datadir
+        self.datadir = cfg.dataset.datadir 
         self.filter_dataset = cfg.dataset.filter
         self.train_smiles = []
         
