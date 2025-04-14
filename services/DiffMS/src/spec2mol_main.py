@@ -35,14 +35,20 @@ def get_resume(cfg, model_kwargs):
     saved_cfg = cfg.copy()
     name = cfg.general.name + '_resume'
     resume = cfg.general.test_only
-    samples_to_generate = cfg.general.samples_to_generate
-
-    model = Spec2MolDenoisingDiffusion.load_from_checkpoint(resume, **model_kwargs)
+    
+    # Fix: Use val_samples_to_generate and test_samples_to_generate instead of samples_to_generate
+    val_samples_to_generate = cfg.general.val_samples_to_generate
+    test_samples_to_generate = cfg.general.test_samples_to_generate
+    
+    model = Spec2MolDenoisingDiffusion(cfg=cfg, **model_kwargs)
+    model = model.load_from_checkpoint(resume, **model_kwargs)
 
     cfg = model.cfg
     cfg.general.test_only = resume
     cfg.general.name = name
-    cfg.general.samples_to_generate = samples_to_generate
+    cfg.general.val_samples_to_generate = val_samples_to_generate
+    cfg.general.test_samples_to_generate = test_samples_to_generate
+    
     cfg = utils.update_config_with_new_keys(cfg, saved_cfg)
     return cfg, model
 
@@ -180,7 +186,7 @@ def main(cfg: DictConfig):
 
     model_kwargs = {'dataset_infos': dataset_infos, 'train_metrics': train_metrics, 'visualization_tools': visualization_tools,
                     'extra_features': extra_features, 'domain_features': domain_features}
-
+ 
     if cfg.general.test_only:
         # When testing, previous configuration is fully loaded
         cfg, _ = get_resume(cfg, model_kwargs)
@@ -203,7 +209,7 @@ def main(cfg: DictConfig):
         os.makedirs('logs/' + cfg.general.name)
     except OSError:
         pass
-
+    
     model = Spec2MolDenoisingDiffusion(cfg=cfg, **model_kwargs)
 
     callbacks = []
